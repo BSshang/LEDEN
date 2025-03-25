@@ -52,11 +52,13 @@ public class MainActivity extends AppCompatActivity {
             ));
         });
 
+        binding.btClear.setOnClickListener(t->{
+            printerManager.sendClearData();
+        });
 
-        binding.button5.setOnClickListener(t->{  //清空缓存
-            printerManager.getStatus(1,status -> runOnUiThread(() ->
-                    Toast.makeText(this, "打印机状态: " + status, Toast.LENGTH_SHORT).show()
-            ));
+
+        binding.button5.setOnClickListener(t->{  //复位重启
+            printerManager.sendReset();
         });
 
         binding.button6.setOnClickListener(t->{  //剩余打印张数
