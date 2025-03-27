@@ -234,9 +234,149 @@ public class PrinterSocketManager {
         }
     }
 
+
+    /**
+     *
+     * 通过APL 指令打印
+     * @param text
+     */
+    public void printTextLabel(String text) {
+        executorService.execute(() -> {
+            if (socket == null || !socket.isConnected()) {
+                Log.w("TAG", "printImage: 通信未建立 ");
+                return;
+            }
+
+            synchronized (this) {
+                StringBuilder commandBuilder = new StringBuilder();
+                commandBuilder.append("JOB\r\n");
+                commandBuilder.append(String.format("DEF PW=%d,PH=%d,SP=2,DK=10,TR=2,MK=2,MO=0,MD=5,PM=1,PO=0,CP=0,CO=0,TO=0,PG=16\r\n",
+                        LabW * printerAccuracy, LabH * printerAccuracy));
+                commandBuilder.append("START\r\n");
+ // RFID     // commandBuilder.append("RFID L=1,MD=1,BX=0,LEN=5,BA=1,APS=00000000\r\n");
+                //commandBuilder.append("LZ20250314003\r\n");
+// 绘制外边框
+                commandBuilder.append("RECT SX=10,SY=20,EX=590,EY=390,WD=2\r\n");
+
+// 第一行分割线
+                commandBuilder.append("RECT SX=10,SY=90,EX=590,EY=90,WD=2\r\n");
+
+// 第二行（Encoding 区域）
+                commandBuilder.append("RECT SX=10,SY=170,EX=590,EY=170,WD=2\r\n");
+                commandBuilder.append("RECT SX=400,SY=90,EX=400,EY=170,WD=2\r\n");//竖线
+
+// 第三行（Quantity 区域）
+                commandBuilder.append("RECT SX=400,SY=170,EX=400,EY=250,WD=2\r\n");  //竖线
+                commandBuilder.append("RECT SX=200,SY=170,EX=200,EY=250,WD=2\r\n"); //竖线
+
+// 第四行（Transfer number）
+                commandBuilder.append("RECT SX=10,SY=250,EX=400,EY=250,WD=2\r\n");
+                commandBuilder.append("RECT SX=400,SY=250,EX=400,EY=320,WD=2\r\n"); //竖线
+
+// 第五行（日期区域）
+                commandBuilder.append("RECT SX=10,SY=320,EX=590,EY=320,WD=2\r\n");
+
+// 设置字体
+                commandBuilder.append("FONT TP=107,WD=20,HT=20,LG=25\r\n");
+// Order number
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 20, 40, "Order number"));
+
+// Encoding
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 20, 120, "Encoding"));
+
+// Quantity
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 20, 180, "Quantity"));
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 220, 180, "Torus"));
+
+// Transfer number
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 20, 270, "Transfer number"));
+
+// Date of documentation
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 20, 340, "Dat of documentation"));
+
+ // 设置数值字体
+                commandBuilder.append("FONT TP=103,WD=20,HT=20,LG=25\r\n");
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 450, 40, "2024PT42725"));
+// Encoding
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 160, 105, "01.07.01.TKD2ORGW9"));
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 160, 130, "32XL-1ER0553715-15"));
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 470, 120, "WC711"));
+
+// Quantity
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 170, 210, "20"));
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 350, 210, "7/16"));
+
+// Transfer number
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 250, 270, "LZ20250225010"));
+
+// Date of documentation
+                commandBuilder.append(String.format("TEXT X=%d,Y=%d,L=1\r\n%s\r\n", 380, 340, "2025-02-25 10:00:00"));
+
+// 二维码
+                commandBuilder.append(String.format("QR X=%d,Y=%d,DR=1,EL=1,CV=9,CS=6\r\n%s\r\n", 440, 180, "LZ20250225010"));
+
+                sendCommandSync(commandBuilder.toString());
+                sendCommandSync("QTY P=1\r\nEND\r\nJOBE\r\n");
+                disconnect();
+            }
+        });
+    }
+
+
+
+    public void printText(int x, int y, String text) {
+        String command = String.format("TEXT X=%d,Y=%d\r\n%s\r\n", x, y, text);
+        sendCommand(command);
+
+    }
+
+    /**
+     *
+     * 打印 图片
+     * @param bitmap
+     */
+    public void printImage(Bitmap bitmap) {
+        executorService.execute(() -> {
+            if (socket == null || !socket.isConnected()) {
+                Log.w("TAG", "printImage: 通信未建立 ");
+                return;
+            }
+
+            synchronized (this) { // 确保 sendCommandSync() 先执行完，再执行 sendImageDataSync()
+                String imageData = generatePrintData(bitmap);
+                StringBuilder commandBuilder = new StringBuilder();
+                commandBuilder.append("JOB\r\n");
+                commandBuilder.append(String.format("DEF PW=%d,PH=%d,SP=2,DK=10,TR=2,MK=2,MO=0,MD=5,PM=1,PO=0,CP=0,CO=0,TO=0,PG=16\r\n",
+                        LabW * printerAccuracy, LabH * printerAccuracy));
+                commandBuilder.append("START\r\n");
+
+
+                commandBuilder.append(String.format("GRAPH X=0,Y=0,WD=%d,HT=%d,MD=1\r\n",
+                        LabW * printerAccuracy, LabH * printerAccuracy));
+
+                sendCommandSync(commandBuilder.toString());
+
+                boolean success = sendImageDataSync(imageData);
+                if (success) {
+                    try {
+                        Thread.sleep(100);  // **确保数据完全到达**
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                    sendCommandSync("QTY P=1\r\nEND\r\nJOBE\r\n");
+                    HandlerUtil.getInstance().postDelay(()->{
+                        disconnect();
+                    },3000);
+
+                } else {
+                    Log.e("TAG", "图片数据发送失败，未执行 JOBE！");
+                }
+            }
+        });
+    }
+
     public void sendCommand(String command) {
         executorService.execute(() -> {
-            System.out.printf("发生的数据 sendCommand: " + command.toString().substring(0, Math.min(command.length(), 100)) + "...");
             try {
                 if (socket != null && socket.isConnected() && !socket.isClosed() && socket.getOutputStream() != null) {
                     try {
@@ -274,6 +414,7 @@ public class PrinterSocketManager {
      */
     private void sendCommandSync(String command) {
         try {
+            System.out.printf("发生的数据 sendCommand: " + command.toString().substring(0, Math.min(command.length(), 100)) + "...");
             if (socket != null && socket.isConnected() && !socket.isClosed() && socket.getOutputStream() != null) {
                 byte[] commandBytes = command.getBytes("UTF-8");
                 int bufferSize = 1024;
@@ -291,48 +432,6 @@ public class PrinterSocketManager {
         }
     }
 
-
-
-
-    public void printText(int x, int y, String text) {
-        String command = String.format("TEXT X=%d,Y=%d\r\n%s\r\n", x, y, text);
-        sendCommand(command);
-
-    }
-
-    public void printImage(Bitmap bitmap) {
-        executorService.execute(() -> {
-            if (socket == null || !socket.isConnected()) {
-                Log.w("TAG", "printImage: 通信未建立 ");
-                return;
-            }
-
-            synchronized (this) { // 确保 sendCommandSync() 先执行完，再执行 sendImageDataSync()
-                String imageData = generatePrintData(bitmap);
-                StringBuilder commandBuilder = new StringBuilder();
-                commandBuilder.append("JOB\r\n");
-                commandBuilder.append(String.format("DEF PW=%d,PH=%d,SP=2,DK=10,TR=2,MK=2,MO=0,MD=5,PM=1,PO=0,CP=0,CO=0,TO=0,PG=16\r\n",
-                        LabW * printerAccuracy, LabH * printerAccuracy));
-                commandBuilder.append("START\r\n");
-                commandBuilder.append(String.format("GRAPH X=0,Y=0,WD=%d,HT=%d,MD=1\r\n",
-                        LabW * printerAccuracy, LabH * printerAccuracy));
-
-                sendCommandSync(commandBuilder.toString());
-
-                boolean success = sendImageDataSync(imageData);
-                if (success) {
-                    try {
-                        Thread.sleep(100);  // **确保数据完全到达**
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                    sendCommandSync("QTY P=1\r\nEND\r\nJOBE\r\n");
-                } else {
-                    Log.e("TAG", "图片数据发送失败，未执行 JOBE！");
-                }
-            }
-        });
-    }
 
 
     private boolean sendImageDataSync(String imageData) {

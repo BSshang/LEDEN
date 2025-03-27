@@ -40,13 +40,22 @@ public class MainActivity extends AppCompatActivity {
         });
 
         binding.button4.setOnClickListener(t->{
-            InputStream is = getResources().openRawResource(R.raw.img_print); // 将你的图片放到 res/raw 目录下
-            Bitmap bitmap = BitmapFactory.decodeStream(is);
-            printerManager.printImage(bitmap);
+            printerManager.connect(success -> {
+                if (success) {
+                    printerManager.printTextLabel("1231231");
+                   // printerManager.printTextLabel("test 123124556");
+                } else {
+                    runOnUiThread(() -> Toast.makeText(this, "连接失败！", Toast.LENGTH_SHORT).show());
+                }
+            });
+//            InputStream is = getResources().openRawResource(R.raw.img_print); // 将你的图片放到 res/raw 目录下
+//            Bitmap bitmap = BitmapFactory.decodeStream(is);
+           //
 
         });
 
         binding.button3.setOnClickListener(t->{
+
              printerManager.getStatus(0,status -> runOnUiThread(() ->
              Toast.makeText(this, "打印机状态: " + status, Toast.LENGTH_SHORT).show()
             ));
